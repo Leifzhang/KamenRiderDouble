@@ -1,11 +1,11 @@
 plugins {
-    kotlin("multiplatform") version "1.8.0"
+    kotlin("multiplatform")
 }
 
 
 kotlin {
     jvm {
-        jvmToolchain(11)
+        //jvmToolchain(11)
         withJava()
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
