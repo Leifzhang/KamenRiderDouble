@@ -1,5 +1,6 @@
 import com.bilibili.proto.cyclone.Request
 import com.bilibili.proto.cyclone.runGenerator
+import com.google.protobuf.DescriptorProtos
 import com.tschuchort.compiletesting.KotlinCompilation
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.Test
@@ -13,7 +14,7 @@ class CodeGeneratorTest {
         check(descriptorSetOutput.exists()) {
             "${descriptorSetOutput.absolutePath} does not exist, make sure it is generated via :generateTestProto"
         }
-       // FileDescriptorSet.decodeFromStream(descriptorSetOutput.inputStream()).file
+        DescriptorProtos.FileDescriptorSet.parseFrom(descriptorSetOutput.inputStream()).fileList
     }
 
 
@@ -23,7 +24,7 @@ class CodeGeneratorTest {
     }
 
     fun request(name: String) {
-        val request = runGenerator(Request(listOf(name)))
+        val request = runGenerator(Request(listOf(name), protoFile = fileDescriptorSet))
         //val kotlinSource = SourceFile.kotlin(File(gen.file.first().name!!).name, gen.file.first().content!!)
     }
 }
