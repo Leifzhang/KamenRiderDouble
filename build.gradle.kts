@@ -4,6 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.jvm") version ("1.7.10") apply (false)
 
     id("com.google.osdetector") version ("1.7.0")
+    id("org.jetbrains.kotlin.plugin.serialization") version ("1.7.10") apply (false)
 }
 allprojects {
     repositories {

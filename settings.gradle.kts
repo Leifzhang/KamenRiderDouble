@@ -20,3 +20,4 @@ pluginManagement {
 }
 include(":joker")
 include(":cyclone")
+include(":henshin")
