@@ -121,11 +121,11 @@ internal open class FileBuilder(
             // Exclude any group fields
             .filterNot { it.type == DescriptorProtos.FieldDescriptorProto.Type.TYPE_GROUP }
             // Handle fields that are part of a oneof specially
-            .partition { it.oneofIndex == 0 }
+            .partition { !it.hasOneofIndex() }
             .let { (standardFields, oneofFields) ->
                 standardFields.map {
                     numberedFieldFromProto(ctx, it, usedFieldNames)
-                } + oneofFields.groupBy { it.oneofIndex!! }
+                } + oneofFields.groupBy { it.oneofIndex }
                     .mapNotNull { (oneofIndex, fields) ->
                         // "Every proto3 optional field is placed into a one-field oneof.
                         // We call this a "synthetic" oneof, as it was not present in the source .proto file."

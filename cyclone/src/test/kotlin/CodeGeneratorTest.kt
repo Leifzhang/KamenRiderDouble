@@ -23,8 +23,25 @@ class CodeGeneratorTest {
         request("simple.proto")
     }
 
-    fun request(name: String) {
+    @Test
+    fun testDeprecatedAnnotation() {
+        request("options.proto")
+    }
+
+    @Test
+    fun testOneOf_SameNameField() {
+        request("oneof_same_name.proto")
+    }
+
+    fun request(name: String): KotlinCompilation.Result {
         val request = runGenerator(Request(listOf(name), protoFile = fileDescriptorSet))
-        //val kotlinSource = SourceFile.kotlin(File(gen.file.first().name!!).name, gen.file.first().content!!)
+        val kotlinSource = SourceFile.kotlin(
+            File(request.fileList.first().name!!).name, request.fileList.first().content!!
+        )
+        return KotlinCompilation().apply {
+            sources = listOf(kotlinSource)
+            inheritClassPath = true
+            messageOutputStream = System.out
+        }.compile()
     }
 }

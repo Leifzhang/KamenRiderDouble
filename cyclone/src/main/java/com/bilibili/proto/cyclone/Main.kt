@@ -11,14 +11,13 @@ public class Main {
 }
 
 
-internal fun runGenerator(request: Request) {
+internal fun runGenerator(request: Request): PluginProtos.CodeGeneratorResponse {
     val kotlinTypeMappings = mutableMapOf<String, String>()
     val params =
         if (request.parameter.isNullOrEmpty()) emptyMap()
         else request.parameter.split(',').map { it.substringBefore('=') to it.substringAfter('=', "") }.toMap()
-
+    val fileBuilder = PluginProtos.CodeGeneratorResponse.newBuilder()
     request.protoFile.forEach { it ->
-
         val file = FileBuilder.buildFile(FileBuilder.Context(it, mapOf()))
         kotlinTypeMappings += file.kotlinTypeMappings()
         if (request.file.contains(it.name)) {
@@ -26,9 +25,15 @@ internal fun runGenerator(request: Request) {
             val filePath = (file.kotlinPackageName?.replace('.', '/')?.plus('/') ?: "") +
                     fileNameSansPath.removeSuffix(".proto") + ".kt"
             println ("Generating $filePath" )
-            val code =
-                CodeGenerator(file = file, kotlinTypeMappings = kotlinTypeMappings, params = params).generate()
+            val code = CodeGenerator(file = file, kotlinTypeMappings = kotlinTypeMappings, params = params).generate()
             println("code generate:${code}")
+            fileBuilder.addFile(
+                PluginProtos.CodeGeneratorResponse.File.newBuilder().setName(filePath)
+                    .setContent(
+                        code
+                    ).build()
+            )
         }
     }
+    return fileBuilder.build()
 }

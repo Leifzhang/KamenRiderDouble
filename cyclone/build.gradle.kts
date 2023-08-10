@@ -21,6 +21,7 @@ import org.gradle.kotlin.dsl.property
 plugins {
     id("java-library")
     id("org.jetbrains.kotlin.jvm")
+    id("kotlinx-serialization")
 }
 
 java {
