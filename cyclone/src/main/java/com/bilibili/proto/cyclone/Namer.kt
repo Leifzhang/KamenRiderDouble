@@ -39,7 +39,7 @@ public interface Namer {
         override fun newTypeName(preferred: String, nameSet: Collection<String>): String {
             var name = underscoreToCamelCase(preferred).replaceFirstChar { it.titlecase() }
             while (nameSet.contains(name) || disallowedTypeNames.contains(name)) name += '_'
-            return name
+            return "K$name"
         }
 
         override fun newFieldName(preferred: String, nameSet: Collection<String>): String {

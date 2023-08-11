@@ -12,5 +12,10 @@ object MyClass {
         val encode = ProtoBuf.Default.encodeToByteArray(sample)
         val newSample = ProtoBuf.Default.decodeFromByteArray<Sample>(encode)
         println("newSample:${newSample.text}")
+
+        val value = Value(Value.StrVal("夏老师是傻逼"))
+        val valueEncode = ProtoBuf.Default.encodeToByteArray(value)
+        val newValue = ProtoBuf.Default.decodeFromByteArray<Value>(valueEncode)
+        println("newSample:${newValue.strVal}")
     }
 }

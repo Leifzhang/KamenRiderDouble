@@ -2,7 +2,7 @@ package com.bilibili.proto.cyclone
 
 import com.google.protobuf.DescriptorProtos
 
-public open class CodeGenerator(
+open class CodeGenerator(
     public val file: File,
     public val kotlinTypeMappings: Map<String, String>,
     public val params: Map<String, String>
@@ -17,6 +17,7 @@ public open class CodeGenerator(
         file.kotlinPackageName?.let {
             line("package $it")
             line("import kotlinx.serialization.Serializable")
+            line("import kotlinx.serialization.protobuf.ProtoPacked")
         }
         file.types.forEach { writeType(it) }
         //  file.extensions.forEach { writeExtension(it) }
@@ -47,20 +48,17 @@ public open class CodeGenerator(
     }
 
     protected fun writeEnumType(type: File.Type.Enum, nested: Boolean = false) {
-        line()
+        line("@Serializable")
         // Only mark top-level classes for export, internal classes will be exported transitively
-        if (!nested) line("@pbandk.Export")
         // Enums are sealed classes w/ a value and a name, and a companion object with all values
-        line("$visibility sealed class ${type.kotlinTypeName}(override val value: Int, override val name: String? = null) : pbandk.Message.Enum {")
+        line("$visibility sealed class ${type.kotlinTypeName}( val value: Int,  val name: String? = null){")
             .indented {
-                line("override fun equals(other: kotlin.Any?): Boolean = other is ${type.kotlinFullTypeName} && other.value == value")
-                line("override fun hashCode(): Int = value.hashCode()")
-                line("override fun toString(): String = \"${type.kotlinFullTypeName}.\${name ?: \"UNRECOGNIZED\"}(value=\$value)\"")
-                line()
-                type.values.forEach { line("$visibility object ${it.kotlinValueTypeName} : ${type.kotlinTypeName}(${it.number}, \"${it.name}\")") }
+                type.values.forEach {
+                    line("@Serializable").line("$visibility object ${it.kotlinValueTypeName} : ${type.kotlinTypeName}(${it.number}, \"${it.name}\")")
+                }
                 line("$visibility class UNRECOGNIZED(value: Int) : ${type.kotlinTypeName}(value)")
                 line()
-                line("$visibility companion object : pbandk.Message.Enum.Companion<${type.kotlinFullTypeName}> {").indented {
+                line("$visibility companion object {").indented {
                     line(
                         "$visibility val values: List<${type.kotlinFullTypeName}> by lazy { listOf(${
                             type.values.joinToString(
@@ -68,8 +66,8 @@ public open class CodeGenerator(
                             ) { it.kotlinValueTypeName }
                         }) }"
                     )
-                    line("override fun fromValue(value: Int): ${type.kotlinFullTypeName} = values.firstOrNull { it.value == value } ?: UNRECOGNIZED(value)")
-                    line("override fun fromName(name: String): ${type.kotlinFullTypeName} = values.firstOrNull { it.name == name } ?: throw IllegalArgumentException(\"No ${type.kotlinTypeName} with name: \$name\")")
+                    line("fun fromValue(value: Int): ${type.kotlinFullTypeName} = values.firstOrNull { it.value == value } ?: UNRECOGNIZED(value)")
+                    line("fun fromName(name: String): ${type.kotlinFullTypeName} = values.firstOrNull { it.name == name } ?: throw IllegalArgumentException(\"No ${type.kotlinTypeName} with name: \$name\")")
                 }.line("}")
             }.line("}")
     }
@@ -78,7 +76,7 @@ public open class CodeGenerator(
         var messageInterface =
             if (type.extensionRange.isNotEmpty()) "pbandk.ExtendableMessage" else "pbandk.Message"
 
-        if (type.mapEntry) messageInterface += ", Map.Entry<${type.mapEntryKeyKotlinType}, ${type.mapEntryValueKotlinType}>"
+        //if (type.mapEntry) messageInterface += ", Map.Entry<${type.mapEntryKeyKotlinType}, ${type.mapEntryValueKotlinType}>"
 
         line()
         // Only mark top-level classes for export, internal classes will be exported transitively
@@ -95,21 +93,22 @@ public open class CodeGenerator(
                     is File.Field.OneOf -> line("val ${field.kotlinFieldName}: ${field.kotlinTypeName} ? = null,")
                 }
             }
-            lineEnd("){").indented {
+            lineEnd(") :  Function0<String> {").indented {
                 type.fields.filterIsInstance<File.Field.OneOf>().forEach(::writeOneOfType)
                 // Companion object
 
                 // Nested enums and types
                 type.nestedTypes.forEach { writeType(it, true) }
+                line("""override fun invoke(): String ="${type.fullName}" """)
             }
         }.line("}")
     }
 
     protected fun writeConstructorField(field: File.Field.Numbered): CodeGenerator {
         if (field is File.Field.Numbered.Standard && field.required) {
-            lineMid("val ${field.kotlinFieldName}: ${field.kotlinValueType(false)}")
+            lineMid("${if(field.repeated||field.map){"@ProtoPacked "}else{""}}val ${field.kotlinFieldName}: ${field.kotlinValueType(false)}")
         } else {
-            lineMid("val ${field.kotlinFieldName}: ${field.kotlinValueType(true)}")
+            lineMid("${if(field.repeated){"@ProtoPacked "}else {""}} val ${field.kotlinFieldName}: ${field.kotlinValueType(true)}")
             lineMid(" = ${field.defaultValue}")
         }
         return this

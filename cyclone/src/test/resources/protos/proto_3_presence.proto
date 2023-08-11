@@ -1,7 +1,9 @@
 syntax = "proto3";
 package pbandk.testpb;
 
-message Proto3PresenceMessage {}
+message Proto3PresenceMessage {
+  string string = 4;
+}
 
 enum Proto3PresenceEnum {
   PROTO3_PRESENCE_ENUM_UNSPECIFIED = 0;

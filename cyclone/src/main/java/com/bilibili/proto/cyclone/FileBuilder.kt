@@ -3,19 +3,11 @@ package com.bilibili.proto.cyclone
 import com.google.protobuf.DescriptorProtos
 
 internal open class FileBuilder(
-    val namer: Namer = Namer.Standard,
-    val supportMaps: Boolean = true
+    private val namer: Namer = Namer.Standard,
+    private val supportMaps: Boolean = true
 ) {
     fun buildFile(ctx: Context): File {
         val packageName = ctx.fileDesc.`package`?.takeIf { it.isNotEmpty() }
-        val types= typesFromProto(
-            ctx,
-            ctx.fileDesc.enumTypeList,
-            ctx.fileDesc.messageTypeList,
-            packageName,
-            null,
-            mutableSetOf()
-        )
         return File(
             name = ctx.fileDesc.name!!,
             packageName = packageName,
@@ -59,13 +51,12 @@ internal open class FileBuilder(
         val kotlinTypeName = namer.newTypeName(enumDesc.name!!, usedTypeNames).also {
             usedTypeNames += it
         }
-
         return File.Type.Enum(
             name = enumDesc.name!!,
             fullName = parentFullName?.let { "$it." }.orEmpty() + enumDesc.name!!,
             values = enumDesc.valueList.fold(listOf()) { values, value ->
                 values + File.Type.Enum.Value(
-                    number = value.number!!,
+                    number = value.number,
                     name = value.name!!,
                     kotlinValueTypeName = namer.newEnumValueTypeName(
                         enumDesc.name!!,

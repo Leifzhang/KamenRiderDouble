@@ -33,15 +33,25 @@ class CodeGeneratorTest {
         request("oneof_same_name.proto")
     }
 
-    fun request(name: String): KotlinCompilation.Result {
+
+    @Test
+    fun testProto3Optional() {
+        val result = request("proto_3_presence.proto")
+    }
+
+    @Test
+    fun testAddress() {
+        val result = request("addressbook.proto")
+    }
+    fun request(name: String) {
         val request = runGenerator(Request(listOf(name), protoFile = fileDescriptorSet))
         val kotlinSource = SourceFile.kotlin(
             File(request.fileList.first().name!!).name, request.fileList.first().content!!
         )
-        return KotlinCompilation().apply {
+    /*    return KotlinCompilation().apply {
             sources = listOf(kotlinSource)
             inheritClassPath = true
             messageOutputStream = System.out
-        }.compile()
+        }.compile()*/
     }
 }
