@@ -183,7 +183,7 @@ internal open class FileBuilder(
 
         return if (wrappedType != null) {
             File.Field.Numbered.Wrapper(
-                number = fieldDesc.number!!,
+                number = fieldDesc.number,
                 name = fieldDesc.name!!,
                 kotlinFieldName = namer.newFieldName(fieldDesc.name!!, usedFieldNames).also {
                     usedFieldNames += it

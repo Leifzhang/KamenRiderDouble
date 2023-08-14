@@ -43,15 +43,26 @@ class CodeGeneratorTest {
     fun testAddress() {
         val result = request("addressbook.proto")
     }
+
+    @Test
+    fun testGoogle() {
+        val result = request("descriptor.proto")
+    }
+
+
     fun request(name: String) {
         val request = runGenerator(Request(listOf(name), protoFile = fileDescriptorSet))
-        val kotlinSource = SourceFile.kotlin(
-            File(request.fileList.first().name!!).name, request.fileList.first().content!!
-        )
-    /*    return KotlinCompilation().apply {
-            sources = listOf(kotlinSource)
-            inheritClassPath = true
-            messageOutputStream = System.out
-        }.compile()*/
+        println("code:\r${request.fileList.first().content}")
+        val outfilePath = File("build/generateTest/test.kt")
+        outfilePath.mkdirs()
+        request.writeTo(outfilePath.outputStream())
+        /*  val kotlinSource = SourceFile.kotlin(
+              File(request.fileList.first().name!!).name, request.fileList.first().content!!
+          )*/
+        /*    return KotlinCompilation().apply {
+                sources = listOf(kotlinSource)
+                inheritClassPath = true
+                messageOutputStream = System.out
+            }.compile()*/
     }
 }

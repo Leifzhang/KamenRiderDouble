@@ -21,7 +21,6 @@ import org.gradle.kotlin.dsl.property
 plugins {
     id("java-library")
     id("org.jetbrains.kotlin.jvm")
-    id("kotlinx-serialization")
 }
 
 java {
@@ -36,6 +35,17 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation(kotlin("reflect"))
     testImplementation("com.github.tschuchortdev:kotlin-compile-testing:1.4.5")
+}
+
+tasks.withType<Jar> {
+    exclude("**/module-info.class")
+    exclude("**/LICENSE.txt")
+    from({
+        configurations.runtimeClasspath.get().filter { it.name.endsWith("jar") }.map { zipTree(it) }
+    })
+    manifest {
+        attributes["Main-Class"] = "com.bilibili.proto.cyclone.Main"
+    }
 }
 
 val extractWellKnownTypeProtos = rootProject.tasks.named<Sync>("extractWellKnownTypeProtos")
@@ -79,7 +89,7 @@ open class ProtocTask : AbstractExecTask<ProtocTask>(ProtocTask::class.java) {
 
     @InputFile
     val protoc: RegularFileProperty = project.objects.fileProperty().fileProvider(
-            project.rootProject.configurations.named("downloadProtoc").map { it.singleFile })
+        project.rootProject.configurations.named("downloadProtoc").map { it.singleFile })
 
     @Input
     val plugin: Property<String> = project.objects.property()

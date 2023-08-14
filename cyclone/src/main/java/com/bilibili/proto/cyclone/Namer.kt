@@ -4,8 +4,9 @@ public fun underscoreToCamelCase(str: String): String {
     var ret = str
     var lastIndex = -1
     while (true) {
-        lastIndex = ret.indexOf('_', lastIndex+1).also { if (it == -1) return ret }
-        ret = ret.substring(0, lastIndex) + ret.substring(lastIndex + 1).replaceFirstChar { it.titlecase() }
+        lastIndex = ret.indexOf('_', lastIndex + 1).also { if (it == -1) return ret }
+        ret = ret.substring(0, lastIndex) + ret.substring(lastIndex + 1)
+            .replaceFirstChar { it.titlecase() }
     }
 }
 
@@ -15,14 +16,25 @@ public fun splitWordsToSnakeCase(str: String): String =
 public interface Namer {
     public fun newTypeName(preferred: String, nameSet: Collection<String>): String
     public fun newFieldName(preferred: String, nameSet: Collection<String>): String
-    public fun newEnumValueTypeName(enumTypeName: String, preferred: String, nameSet: Collection<String>): String
+    public fun newEnumValueTypeName(
+        enumTypeName: String,
+        preferred: String,
+        nameSet: Collection<String>
+    ): String
 
     public open class Standard : Namer {
         private val disallowedTypeNames = setOf(
             "Boolean", "Companion", "Double", "Float", "Int", "List", "Long", "Map", "String"
         )
         private val disallowedFieldNames = setOf(
-            "decodeWith", "descriptor", "emptyList", "encodeWith", "pbandk", "plus", "protoSize", "unknownFields"
+            "decodeWith",
+            "descriptor",
+            "emptyList",
+            "encodeWith",
+            "pbandk",
+            "plus",
+            "protoSize",
+            "unknownFields"
         )
         private val disallowedFieldNamePrefixes = setOf(
             "decodeFrom", "encodeTo"
@@ -39,7 +51,10 @@ public interface Namer {
         override fun newTypeName(preferred: String, nameSet: Collection<String>): String {
             var name = underscoreToCamelCase(preferred).replaceFirstChar { it.titlecase() }
             while (nameSet.contains(name) || disallowedTypeNames.contains(name)) name += '_'
-            return "K$name"
+            if (name.isNotEmpty()) {
+                name = "K$name"
+            }
+            return name
         }
 
         override fun newFieldName(preferred: String, nameSet: Collection<String>): String {
@@ -50,14 +65,19 @@ public interface Namer {
             return name
         }
 
-        override fun newEnumValueTypeName(enumTypeName: String, preferred: String, nameSet: Collection<String>): String {
+        override fun newEnumValueTypeName(
+            enumTypeName: String,
+            preferred: String,
+            nameSet: Collection<String>
+        ): String {
             val typePrefix = splitWordsToSnakeCase(enumTypeName) + '_'
             var name = splitWordsToSnakeCase(preferred).substringAfter(typePrefix)
             name = name.uppercase()
 
             while (nameSet.contains(name) ||
-                    disallowedValueTypeNames.contains(name) ||
-                    enumTypeName == name) {
+                disallowedValueTypeNames.contains(name) ||
+                enumTypeName == name
+            ) {
                 name += '_'
             }
             return name

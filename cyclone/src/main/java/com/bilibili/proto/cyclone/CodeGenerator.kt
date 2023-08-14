@@ -17,6 +17,7 @@ open class CodeGenerator(
         file.kotlinPackageName?.let {
             line("package $it")
             line("import kotlinx.serialization.Serializable")
+            line("import kotlinx.serialization.protobuf.ProtoNumber")
             line("import kotlinx.serialization.protobuf.ProtoPacked")
         }
         file.types.forEach { writeType(it) }
@@ -38,8 +39,7 @@ open class CodeGenerator(
     }
 
     protected fun writeType(
-        type: File.Type,
-        nested: Boolean = false
+        type: File.Type, nested: Boolean = false
     ) {
         when (type) {
             is File.Type.Enum -> writeEnumType(type, nested)
@@ -51,38 +51,35 @@ open class CodeGenerator(
         line("@Serializable")
         // Only mark top-level classes for export, internal classes will be exported transitively
         // Enums are sealed classes w/ a value and a name, and a companion object with all values
-        line("$visibility sealed class ${type.kotlinTypeName}( val value: Int,  val name: String? = null){")
-            .indented {
-                type.values.forEach {
-                    line("@Serializable").line("$visibility object ${it.kotlinValueTypeName} : ${type.kotlinTypeName}(${it.number}, \"${it.name}\")")
-                }
-                line("$visibility class UNRECOGNIZED(value: Int) : ${type.kotlinTypeName}(value)")
-                line()
-                line("$visibility companion object {").indented {
-                    line(
-                        "$visibility val values: List<${type.kotlinFullTypeName}> by lazy { listOf(${
-                            type.values.joinToString(
-                                ", "
-                            ) { it.kotlinValueTypeName }
-                        }) }"
-                    )
-                    line("fun fromValue(value: Int): ${type.kotlinFullTypeName} = values.firstOrNull { it.value == value } ?: UNRECOGNIZED(value)")
-                    line("fun fromName(name: String): ${type.kotlinFullTypeName} = values.firstOrNull { it.name == name } ?: throw IllegalArgumentException(\"No ${type.kotlinTypeName} with name: \$name\")")
-                }.line("}")
+        line("$visibility sealed class ${type.kotlinTypeName}( val value: Int,  val name: String? = null){").indented {
+            type.values.forEach {
+                line("@Serializable").line("$visibility object ${it.kotlinValueTypeName} : ${type.kotlinTypeName}(${it.number}, \"${it.name}\")")
+            }
+            line("$visibility class UNRECOGNIZED(value: Int) : ${type.kotlinTypeName}(value)")
+            line()
+            line("$visibility companion object {").indented {
+                line("$visibility val values: List<${type.kotlinFullTypeName}> by lazy { listOf(${
+                    type.values.joinToString(
+                        ", "
+                    ) { it.kotlinValueTypeName }
+                }) }")
+                line("fun fromValue(value: Int): ${type.kotlinFullTypeName} = values.firstOrNull { it.value == value } ?: UNRECOGNIZED(value)")
+                line("fun fromName(name: String): ${type.kotlinFullTypeName} = values.firstOrNull { it.name == name } ?: throw IllegalArgumentException(\"No ${type.kotlinTypeName} with name: \$name\")")
             }.line("}")
+        }.line("}")
     }
 
-    protected fun writeMessageType(type: File.Type.Message, nested: Boolean = false) {
-        var messageInterface =
-            if (type.extensionRange.isNotEmpty()) "pbandk.ExtendableMessage" else "pbandk.Message"
+    protected fun writeMessageType(type: File.Type.Message, nested: Boolean = false) {/* var messageInterface =
+             if (type.extensionRange.isNotEmpty()) "pbandk.ExtendableMessage" else "pbandk.Message"*/
 
         //if (type.mapEntry) messageInterface += ", Map.Entry<${type.mapEntryKeyKotlinType}, ${type.mapEntryValueKotlinType}>"
 
         line()
         // Only mark top-level classes for export, internal classes will be exported transitively
-        if (!nested) line("@Serializable")
-        line("$visibility data class ${type.kotlinTypeName}(").indented {
-            val fieldBegin = if (type.mapEntry) "override " else ""
+        line("@Serializable")
+        val classType = if (type.fields.isEmpty()) "" else "data"
+        line("$visibility $classType class ${type.kotlinTypeName}(").indented {
+            val fieldBegin = ""
             type.fields.forEach { field ->
                 when (field) {
                     is File.Field.Numbered -> {
@@ -90,7 +87,7 @@ open class CodeGenerator(
                         lineBegin(fieldBegin).writeConstructorField(field).lineEnd(",")
                     }
 
-                    is File.Field.OneOf -> line("val ${field.kotlinFieldName}: ${field.kotlinTypeName} ? = null,")
+                    is File.Field.OneOf -> line(" val ${field.kotlinFieldName}: ${field.kotlinTypeName} ? = null,")
                 }
             }
             lineEnd(") :  Function0<String> {").indented {
@@ -104,11 +101,27 @@ open class CodeGenerator(
         }.line("}")
     }
 
-    protected fun writeConstructorField(field: File.Field.Numbered): CodeGenerator {
+    private fun writeConstructorField(field: File.Field.Numbered): CodeGenerator {
         if (field is File.Field.Numbered.Standard && field.required) {
-            lineMid("${if(field.repeated||field.map){"@ProtoPacked "}else{""}}val ${field.kotlinFieldName}: ${field.kotlinValueType(false)}")
+            lineMid(
+                "@ProtoNumber(${field.number}) ${
+                    if (field.repeated || field.map) {
+                        "@ProtoPacked "
+                    } else {
+                        ""
+                    }
+                }val ${field.kotlinFieldName}: ${field.kotlinValueType(false)}"
+            )
         } else {
-            lineMid("${if(field.repeated){"@ProtoPacked "}else {""}} val ${field.kotlinFieldName}: ${field.kotlinValueType(true)}")
+            lineMid(
+                "@ProtoNumber(${field.number}) ${
+                    if (field.repeated) {
+                        "@ProtoPacked "
+                    } else {
+                        ""
+                    }
+                } val ${field.kotlinFieldName}: ${field.kotlinValueType(true)}"
+            )
             lineMid(" = ${field.defaultValue}")
         }
         return this
@@ -117,14 +130,12 @@ open class CodeGenerator(
 
     protected fun findLocalType(protoName: String, parent: File.Type.Message? = null): File.Type? {
         // Get the set to look in and the type name
-        val (lookIn, typeName) =
-            if (parent == null) file.types to protoName.removePrefix(".${file.packageName}.")
-            else parent.nestedTypes to protoName
+        val (lookIn, typeName) = if (parent == null) file.types to protoName.removePrefix(".${file.packageName}.")
+        else parent.nestedTypes to protoName
         // Go deeper if there's a dot
         typeName.indexOf('.').let {
             if (it == -1) return lookIn.find { type -> type.name == typeName }
-            return findLocalType(
-                typeName.substring(it + 1),
+            return findLocalType(typeName.substring(it + 1),
                 typeName.substring(0, it).let { parentTypeName ->
                     lookIn.find { type -> type.name == parentTypeName } as? File.Type.Message
                 } ?: return null)
@@ -254,7 +265,7 @@ open class CodeGenerator(
     protected val File.Field.Type.standardTypeName: String
         get() = when (this) {
             File.Field.Type.BOOL -> "Boolean"
-            File.Field.Type.BYTES -> "pbandk.ByteArr"
+            File.Field.Type.BYTES -> "ByteArray"
             File.Field.Type.DOUBLE -> "Double"
             File.Field.Type.ENUM -> error("No standard type name for enums")
             File.Field.Type.FIXED32 -> "Int"
@@ -274,14 +285,12 @@ open class CodeGenerator(
     protected val File.Field.Type.defaultValue: String
         get() = when (this) {
             File.Field.Type.BOOL -> "false"
-            File.Field.Type.BYTES -> "pbandk.ByteArr.empty"
+            File.Field.Type.BYTES -> "byteArrayOf()"
             File.Field.Type.DOUBLE -> "0.0"
             File.Field.Type.ENUM -> error("No generic default value for enums")
-            File.Field.Type.FIXED32, File.Field.Type.INT32, File.Field.Type.SFIXED32,
-            File.Field.Type.SINT32, File.Field.Type.UINT32 -> "0"
+            File.Field.Type.FIXED32, File.Field.Type.INT32, File.Field.Type.SFIXED32, File.Field.Type.SINT32, File.Field.Type.UINT32 -> "0"
 
-            File.Field.Type.FIXED64, File.Field.Type.INT64, File.Field.Type.SFIXED64,
-            File.Field.Type.SINT64, File.Field.Type.UINT64 -> "0L"
+            File.Field.Type.FIXED64, File.Field.Type.INT64, File.Field.Type.SFIXED64, File.Field.Type.SINT64, File.Field.Type.UINT64 -> "0L"
 
             File.Field.Type.FLOAT -> "0.0F"
             File.Field.Type.MESSAGE -> "null"

@@ -2,6 +2,7 @@ package com.bilibili.w.sample
 
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.protobuf.ProtoNumber
 import kotlinx.serialization.protobuf.ProtoPacked
 import kotlin.reflect.KProperty0
 
@@ -13,7 +14,7 @@ import kotlin.reflect.KProperty0
  */
 @Serializable
 public data class Value(
-    @ProtoPacked val value: Value? = null,
+    @ProtoPacked @ProtoNumber(1) val value: Value? = null,
 ) : Function0<String> {
     companion object {
         const val TARGET_PATH = ""
@@ -23,7 +24,7 @@ public data class Value(
     public sealed interface Value
 
     @Serializable
-    public class IntVal(val intVal: Int = 0) : Value
+    public class IntVal(@ProtoNumber(1) val intVal: Int = 0) : Value
 
     @Serializable
     public class StrVal(val strVal: String = "") : Value
