@@ -1,7 +1,5 @@
 package com.bilibili.proto.cyclone
 
-import com.google.protobuf.DescriptorProtos
-
 open class CodeGenerator(
     public val file: File,
     public val kotlinTypeMappings: Map<String, String>,
@@ -51,11 +49,11 @@ open class CodeGenerator(
         line("@Serializable")
         // Only mark top-level classes for export, internal classes will be exported transitively
         // Enums are sealed classes w/ a value and a name, and a companion object with all values
-        line("$visibility sealed class ${type.kotlinTypeName}( val value: Int,  val name: String? = null){").indented {
+        line("$visibility enum class ${type.kotlinTypeName}(val value: Int){").indented {
             type.values.forEach {
-                line("@Serializable").line("$visibility object ${it.kotlinValueTypeName} : ${type.kotlinTypeName}(${it.number}, \"${it.name}\")")
+                line("${it.kotlinValueTypeName}(${it.number}),")
             }
-            line("$visibility class UNRECOGNIZED(value: Int) : ${type.kotlinTypeName}(value)")
+            line("UNRECOGNIZED(-1);")
             line()
             line("$visibility companion object {").indented {
                 line("$visibility val values: List<${type.kotlinFullTypeName}> by lazy { listOf(${
@@ -63,7 +61,7 @@ open class CodeGenerator(
                         ", "
                     ) { it.kotlinValueTypeName }
                 }) }")
-                line("fun fromValue(value: Int): ${type.kotlinFullTypeName} = values.firstOrNull { it.value == value } ?: UNRECOGNIZED(value)")
+                line("fun fromValue(value: Int): ${type.kotlinFullTypeName} = values.firstOrNull { it.value == value } ?: UNRECOGNIZED")
                 line("fun fromName(name: String): ${type.kotlinFullTypeName} = values.firstOrNull { it.name == name } ?: throw IllegalArgumentException(\"No ${type.kotlinTypeName} with name: \$name\")")
             }.line("}")
         }.line("}")
@@ -87,11 +85,11 @@ open class CodeGenerator(
                         lineBegin(fieldBegin).writeConstructorField(field).lineEnd(",")
                     }
 
-                    is File.Field.OneOf -> line(" val ${field.kotlinFieldName}: ${field.kotlinTypeName} ? = null,")
+                    is File.Field.OneOf -> writeOneofCase(field)
                 }
             }
             lineEnd(") :  Function0<String> {").indented {
-                type.fields.filterIsInstance<File.Field.OneOf>().forEach(::writeOneOfType)
+             //   type.fields.filterIsInstance<File.Field.OneOf>().forEach(::writeOneOfType)
                 // Companion object
 
                 // Nested enums and types
@@ -100,6 +98,32 @@ open class CodeGenerator(
             }
         }.line("}")
     }
+
+    private fun writeOneofCase(oneof: File.Field.OneOf) {
+        oneof.fields.forEach { field ->
+            line(
+                "@ProtoNumber(${field.number}) private val ${field.kotlinFieldName}: ${
+                    field.kotlinValueType(
+                        false
+                    ) 
+                }?  = ${field.defaultValue(allowNulls = true)},"
+            )
+        }
+    }
+
+    private fun initOneofCase(case: List<File.Field.OneOf>) {
+        line()
+        case.forEach {
+            line("val ${it.kotlinFieldName}Number : Int ")
+        }
+        line("init{").indented {
+            case.forEach {
+                line("${it.kotlinFieldName}Number = ")
+                it.fields.forEach { }
+            }
+        }.line("}")
+    }
+
 
     private fun writeConstructorField(field: File.Field.Numbered): CodeGenerator {
         if (field is File.Field.Numbered.Standard && field.required) {
@@ -148,7 +172,7 @@ open class CodeGenerator(
         oneOf.fields.forEach { field ->
             addDeprecatedAnnotation(field)
             line("@Serializable")
-            lineBegin("$visibility class ${oneOf.kotlinFieldTypeNames[field.name]}( val ")
+            lineBegin("$visibility class ${oneOf.kotlinFieldTypeNames[field.name]}(@ProtoNumber(${field.number}) val ")
             lineMid("${field.kotlinFieldName}: ${field.kotlinValueType(false)}")
             if (field.type != File.Field.Type.MESSAGE) lineMid(" = ${field.defaultValue(allowNulls = false)}")
             lineEnd(") : ${oneOf.kotlinTypeName}")
@@ -202,7 +226,9 @@ open class CodeGenerator(
         }
     private val File.Field.Numbered.Standard.kotlinQualifiedTypeName: String
         get() = let {
-            if (kotlinLocalTypeName?.isNotEmpty() == true) {
+            if(type == File.Field.Type.ENUM ){
+                 "Int"
+            }else if (kotlinLocalTypeName?.isNotEmpty() == true) {
                 kotlinLocalTypeName
             } else if (localTypeName?.isNotEmpty() == true) {
                 localTypeName.let { kotlinTypeMappings.getOrElse(it) { error("Unable to find mapping for $it") } }
@@ -212,7 +238,8 @@ open class CodeGenerator(
         }
 
 
-    protected fun File.Field.Numbered.Standard.kotlinValueType(allowNulls: Boolean): String = when {
+    private fun File.Field.Numbered.Standard.kotlinValueType(allowNulls: Boolean): String = when {
+        type == File.Field.Type.ENUM -> "Int"
         map -> mapEntry()!!.let { "Map<${it.mapEntryKeyKotlinType}, ${it.mapEntryValueKotlinType}>" }
         repeated -> "List<$kotlinQualifiedTypeName>"
         allowNulls && hasPresence -> "$kotlinQualifiedTypeName?"
@@ -224,7 +251,8 @@ open class CodeGenerator(
             map -> "emptyMap()"
             repeated -> "emptyList()"
             allowNulls && hasPresence -> "null"
-            type == File.Field.Type.ENUM -> "$kotlinQualifiedTypeName.fromValue(0)"
+          //  type == File.Field.Type.ENUM -> "$kotlinQualifiedTypeName.fromValue(0)"
+            type == File.Field.Type.ENUM -> "0"
             else -> type.defaultValue
         }
 
@@ -232,6 +260,7 @@ open class CodeGenerator(
         get() = repeated || hasPresence || type.requiresExplicitTypeWithVal
 
     protected fun File.Field.Numbered.Wrapper.kotlinValueType(allowNulls: Boolean): String = when {
+        type == File.Field.Type.ENUM -> "Int"
         repeated -> "List<${wrappedType.standardTypeName}>"
         else -> wrappedType.standardTypeName + if (allowNulls) "?" else ""
     }

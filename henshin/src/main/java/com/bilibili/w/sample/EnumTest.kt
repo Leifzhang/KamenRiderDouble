@@ -1,54 +1,56 @@
 package pbandk.testpb
 
+import com.bilibili.w.sample.KTestSer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.protobuf.ProtoNumber
 
 /**
  * @Author LiABao
  * @Since 2023/8/10
  */
 @Serializable
-public sealed class Proto3PresenceEnum( val value: Int,  val name: String? = null){
-    @Serializable
-    public object PROTO3_PRESENCE_ENUM_UNSPECIFIED : Proto3PresenceEnum(0, "PROTO3_PRESENCE_ENUM_UNSPECIFIED")
-    public class UNRECOGNIZED(value: Int) : Proto3PresenceEnum(value)
+public enum class KProto3PresenceEnum(val value: Int){
+    PROTO3_PRESENCE_ENUM_UNSPECIFIED(0),
+    UNRECOGNIZED(-1);
 
     public companion object {
-        public val values: List<Proto3PresenceEnum> by lazy { listOf(PROTO3_PRESENCE_ENUM_UNSPECIFIED) }
-        fun fromValue(value: Int): Proto3PresenceEnum = values.firstOrNull { it.value == value } ?: UNRECOGNIZED(value)
-        fun fromName(name: String): Proto3PresenceEnum = values.firstOrNull { it.name == name } ?: throw IllegalArgumentException("No Proto3PresenceEnum with name: $name")
+        public val values: List<KProto3PresenceEnum> by lazy { listOf(PROTO3_PRESENCE_ENUM_UNSPECIFIED) }
+        fun fromValue(value: Int): KProto3PresenceEnum = values.firstOrNull { it.value == value } ?: UNRECOGNIZED
+        fun fromName(name: String): KProto3PresenceEnum = values.firstOrNull { it.name == name } ?: throw IllegalArgumentException("No KProto3PresenceEnum with name: $name")
     }
 }
-
 @Serializable
-public data class Proto3PresenceMessage(
-    val string: String = "",
-){
+public data class KProto3PresenceMessage(
+    @ProtoNumber(4)  val string: String = "",
+) :  Function0<String> {
+    override fun invoke(): String ="pbandk.testpb.Proto3PresenceMessage"
 }
 
-@Serializable
-public data class Proto3PresenceMain(
-    val message: pbandk.testpb.Proto3PresenceMessage? = null,
-    val string: String = "",
-    val int: Int = 0,
-    val enum: pbandk.testpb.Proto3PresenceEnum = pbandk.testpb.Proto3PresenceEnum.fromValue(0),
-    val optionalMessage: pbandk.testpb.Proto3PresenceMessage? = null,
-    val optionalString: String? = null,
-    val optionalInt: Int? = null,
-    val optionalEnum: pbandk.testpb.Proto3PresenceEnum? = null,
-    val oneOf: OneOf ? = null,
-){
+@Serializable(with=KTestSer::class)
+public data class KProto3PresenceMain(
+    @ProtoNumber(2)  val message: pbandk.testpb.KProto3PresenceMessage? = null,
+    @ProtoNumber(4)  val string: String = "",
+    @ProtoNumber(6)  val int: Int = 0,
+    @ProtoNumber(8)  val enum: pbandk.testpb.KProto3PresenceEnum = pbandk.testpb.KProto3PresenceEnum.fromValue(0),
+    @ProtoNumber(1)  val optionalMessage: pbandk.testpb.KProto3PresenceMessage? = null,
+    @ProtoNumber(3)  val optionalString: String? = null,
+    @ProtoNumber(5)  val optionalInt: Int? = null,
+    @ProtoNumber(7)  val optionalEnum: pbandk.testpb.KProto3PresenceEnum? = null,
+    val oneOf: KOneOf ? = null,
+) :  Function0<String> {
     @Serializable
-    public sealed interface OneOf
+    public sealed interface KOneOf
 
     @Serializable
-    public class OneOfString( val oneOfString: String = "") : OneOf
+    public class KOneOfString( val oneOfString: String = "") : KOneOf
     @Serializable
-    public class OneOfInt( val oneOfInt: Int = 0) : OneOf
+    public class KOneOfInt( val oneOfInt: Int = 0) : KOneOf
 
 
     val oneOfString: String?
-        get() = (oneOf as? OneOfString)?.oneOfString
+        get() = (oneOf as? KOneOfString)?.oneOfString
     val oneOfInt: Int?
-        get() = (oneOf as? OneOfInt)?.oneOfInt
+        get() = (oneOf as? KOneOfInt)?.oneOfInt
 
+    override fun invoke(): String ="pbandk.testpb.Proto3PresenceMain"
 }

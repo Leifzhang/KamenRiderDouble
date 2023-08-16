@@ -2,6 +2,9 @@ package com.bilibili.w.sample
 
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
 import kotlinx.serialization.protobuf.ProtoNumber
 import kotlinx.serialization.protobuf.ProtoPacked
 import kotlin.reflect.KProperty0
@@ -14,11 +17,10 @@ import kotlin.reflect.KProperty0
  */
 @Serializable
 public data class Value(
-    @ProtoPacked @ProtoNumber(1) val value: Value? = null,
+    @ProtoNumber(1) val type: KProto3PresenceEnum = KProto3PresenceEnum.fromValue(0),
+    @ProtoPacked @ProtoNumber(0) val value: Value? = null,
 ) : Function0<String> {
-    companion object {
-        const val TARGET_PATH = ""
-    }
+
 
     @Serializable
     public sealed interface Value
@@ -38,4 +40,16 @@ public data class Value(
     override fun invoke(): String = "com.bilibili.w.sample.Value"
 
 
+}
+
+@Serializable
+public enum class KProto3PresenceEnum(val value: Int){
+    PROTO3_PRESENCE_ENUM_UNSPECIFIED(0),
+    UNRECOGNIZED(-1);
+
+    public companion object {
+        public val values: List<KProto3PresenceEnum> by lazy { listOf(PROTO3_PRESENCE_ENUM_UNSPECIFIED) }
+        fun fromValue(value: Int): KProto3PresenceEnum = values.firstOrNull { it.value == value } ?: UNRECOGNIZED
+        fun fromName(name: String): KProto3PresenceEnum = values.firstOrNull { it.name == name } ?: throw IllegalArgumentException("No KProto3PresenceEnum with name: $name")
+    }
 }
