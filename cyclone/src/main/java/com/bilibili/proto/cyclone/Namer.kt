@@ -52,7 +52,7 @@ public interface Namer {
             var name = underscoreToCamelCase(preferred).replaceFirstChar { it.titlecase() }
             while (nameSet.contains(name) || disallowedTypeNames.contains(name)) name += '_'
             if (name.isNotEmpty()) {
-                name = "K$name"
+                name = "K${name}W"
             }
             return name
         }

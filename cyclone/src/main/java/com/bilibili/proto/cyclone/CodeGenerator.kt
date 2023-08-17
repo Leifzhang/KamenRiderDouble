@@ -89,11 +89,16 @@ open class CodeGenerator(
                 }
             }
             lineEnd(") :  Function0<String> {").indented {
-             //   type.fields.filterIsInstance<File.Field.OneOf>().forEach(::writeOneOfType)
+                //   type.fields.filterIsInstance<File.Field.OneOf>().forEach(::writeOneOfType)
+                initOneofCase(type.fields.filterIsInstance<File.Field.OneOf>())
+                type.fields.filterIsInstance<File.Field.Numbered.Standard>().filter { it ->
+                    it.type == File.Field.Type.ENUM
+                }.apply { enumsCase(this) }
                 // Companion object
 
                 // Nested enums and types
                 type.nestedTypes.forEach { writeType(it, true) }
+                line()
                 line("""override fun invoke(): String ="${type.fullName}" """)
             }
         }.line("}")
@@ -105,23 +110,98 @@ open class CodeGenerator(
                 "@ProtoNumber(${field.number}) private val ${field.kotlinFieldName}: ${
                     field.kotlinValueType(
                         false
-                    ) 
+                    )
                 }?  = ${field.defaultValue(allowNulls = true)},"
             )
         }
     }
 
+    private fun enumsCase(enums: List<File.Field.Numbered.Standard>) {
+        enums.forEach { it ->
+            if (!it.repeated && !it.map) {
+                line(
+                    "fun  ${it.kotlinFieldName}Enum() : ${it.kotlinQualifiedTypeNameNonEnum}  = ${
+                        it.kotlinQualifiedTypeNameNonEnum
+                    }.fromValue(${it.kotlinFieldName})"
+                ).line()
+            }
+        }
+    }
+
     private fun initOneofCase(case: List<File.Field.OneOf>) {
+        if (case.isEmpty()) {
+            return
+        }
         line()
         case.forEach {
-            line("val ${it.kotlinFieldName}Number : Int ")
+            line("@delegate:Transient")
+            line("private val ${it.kotlinFieldName}Number by lazy { ").indented {
+                var getNumberText = ""
+                it.fields.forEachIndexed { index, standard ->
+                    getNumberText += if (index == 0) {
+                        "if( ${standard.kotlinFieldName} != null) {\r"
+                    } else {
+                        "} else if( ${standard.kotlinFieldName} != null){\r"
+                    }
+                    getNumberText+="    $index \r"
+                    if (index == it.fields.size - 1) {
+                        getNumberText+="""} else {
+                            |    -1
+                            |}
+                        """.trimMargin()
+                    }
+                }
+                getNumberText.lines().forEach { line ->
+                    line(line)
+                }
+            }.line("}")
         }
-        line("init{").indented {
-            case.forEach {
-                line("${it.kotlinFieldName}Number = ")
-                it.fields.forEach { }
+        line()
+        case.forEach { oneOf ->
+            line("$visibility sealed class ${oneOf.kotlinTypeName}(val value:Int)").line()
+            var getOneofValue = ""
+            oneOf.fields.forEachIndexed { index, field ->
+                addDeprecatedAnnotation(field)
+                lineBegin("$visibility object ${oneOf.kotlinFieldTypeNames[field.name]}")
+                lineEnd(" : ${oneOf.kotlinTypeName} ($index)").line()
+                if (index == 0) {
+                    getOneofValue += "if"
+                } else {
+                    getOneofValue += " else if"
+                }
+                getOneofValue += """(${field.kotlinFieldName} != null){
+                    |    return ${field.kotlinFieldName}  as T
+                    |}
+                """.trimMargin()
             }
-        }.line("}")
+            getOneofValue += """ else { return null }"""
+
+            line()
+
+            line("fun <T> ${oneOf.kotlinFieldName}Value() : T? {").indented {
+                getOneofValue.lines().forEach {
+                    line(it)
+                }
+            }.line("}")
+
+            line()
+            line("fun ${oneOf.kotlinFieldName}Type(): ${oneOf.kotlinTypeName} ? = ${oneOf.kotlinFieldName}Values.firstOrNull { it.value == ${oneOf.kotlinFieldName}Number }")
+
+            line().line()
+
+
+        }
+        line("companion object {").indented {
+            case.forEach { oneOf ->
+                var text = ""
+                oneOf.fields.forEachIndexed { index, field ->
+                    text += "${oneOf.kotlinFieldTypeNames[field.name]},"
+                }
+                line("val ${oneOf.kotlinFieldName}Values : List<${oneOf.kotlinTypeName}> by lazy {").indented {
+                    line("listOf(${text.substring(0, text.length - 1)})")
+                }.line("}")
+            }
+        }.line("}").line().line()
     }
 
 
@@ -226,9 +306,20 @@ open class CodeGenerator(
         }
     private val File.Field.Numbered.Standard.kotlinQualifiedTypeName: String
         get() = let {
-            if(type == File.Field.Type.ENUM ){
-                 "Int"
-            }else if (kotlinLocalTypeName?.isNotEmpty() == true) {
+            if (type == File.Field.Type.ENUM) {
+                "Int"
+            } else if (kotlinLocalTypeName?.isNotEmpty() == true) {
+                kotlinLocalTypeName
+            } else if (localTypeName?.isNotEmpty() == true) {
+                localTypeName.let { kotlinTypeMappings.getOrElse(it) { error("Unable to find mapping for $it") } }
+            } else {
+                type.standardTypeName
+            }
+        }
+
+    private val File.Field.Numbered.Standard.kotlinQualifiedTypeNameNonEnum: String
+        get() = let {
+            if (kotlinLocalTypeName?.isNotEmpty() == true) {
                 kotlinLocalTypeName
             } else if (localTypeName?.isNotEmpty() == true) {
                 localTypeName.let { kotlinTypeMappings.getOrElse(it) { error("Unable to find mapping for $it") } }
@@ -239,10 +330,9 @@ open class CodeGenerator(
 
 
     private fun File.Field.Numbered.Standard.kotlinValueType(allowNulls: Boolean): String = when {
-        type == File.Field.Type.ENUM -> "Int"
         map -> mapEntry()!!.let { "Map<${it.mapEntryKeyKotlinType}, ${it.mapEntryValueKotlinType}>" }
         repeated -> "List<$kotlinQualifiedTypeName>"
-        allowNulls && hasPresence -> "$kotlinQualifiedTypeName?"
+        allowNulls && hasPresence && type != File.Field.Type.ENUM -> "$kotlinQualifiedTypeName?"
         else -> kotlinQualifiedTypeName
     }
 
@@ -250,9 +340,9 @@ open class CodeGenerator(
         when {
             map -> "emptyMap()"
             repeated -> "emptyList()"
-            allowNulls && hasPresence -> "null"
-          //  type == File.Field.Type.ENUM -> "$kotlinQualifiedTypeName.fromValue(0)"
             type == File.Field.Type.ENUM -> "0"
+            allowNulls && hasPresence -> "null"
+            //  type == File.Field.Type.ENUM -> "$kotlinQualifiedTypeName.fromValue(0)"
             else -> type.defaultValue
         }
 
@@ -260,7 +350,6 @@ open class CodeGenerator(
         get() = repeated || hasPresence || type.requiresExplicitTypeWithVal
 
     protected fun File.Field.Numbered.Wrapper.kotlinValueType(allowNulls: Boolean): String = when {
-        type == File.Field.Type.ENUM -> "Int"
         repeated -> "List<${wrappedType.standardTypeName}>"
         else -> wrappedType.standardTypeName + if (allowNulls) "?" else ""
     }
@@ -268,6 +357,7 @@ open class CodeGenerator(
     protected val File.Field.Numbered.Wrapper.defaultValue: String
         get() = when {
             repeated -> "emptyList()"
+            type == File.Field.Type.ENUM -> "0"
             else -> "null"
         }
 

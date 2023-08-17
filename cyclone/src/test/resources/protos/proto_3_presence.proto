@@ -17,7 +17,7 @@ message Proto3PresenceMain {
   optional int32 optional_int = 5;
   int32 int = 6;
   optional Proto3PresenceEnum optional_enum = 7;
-  Proto3PresenceEnum enum = 8;
+  repeated Proto3PresenceEnum enum = 8;
   oneof one_of {
     string one_of_string = 9;
     int32 one_of_int = 10;
