@@ -7,6 +7,8 @@ import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
 import kotlinx.serialization.protobuf.ProtoBuf
+import pbandk.testpb.KProto3PresenceMain
+import pbandk.testpb.KProto3PresenceMessage
 
 
 object MyClass {
@@ -27,14 +29,23 @@ object MyClass {
         val intValueEncode = ProtoBuf {}.encodeToByteArray(intValue)
         val newIntValue = ProtoBuf {}.decodeFromByteArray<Value>(intValueEncode)
         println("newIntValue:${newIntValue.value}")
-        val moudle = SerializersModule {
-            polymorphic(Value.Value::class) {
-                subclass(Value.IntVal::class)
-                subclass(Value.StrVal::class)
+
+
+        val main = KProto3PresenceMain(KProto3PresenceMessage("1234"), "夏老师是大傻逼", 3, 0)
+        val mainEncode = ProtoBuf {}.encodeToByteArray(main)
+        val mainValue = ProtoBuf {}.decodeFromByteArray<KProto3PresenceMain>(mainEncode)
+        println("mainValue: $mainValue")
+    }
+
+    fun  getInvoke(data1: Any): String? {
+        if (data1 is Function0<*>) {
+            val value = data1.invoke()
+            if (value is String) {
+                return value
+            } else {
+                return null
             }
         }
-        ProtoBuf {
-            serializersModule = moudle
-        }
+        return null
     }
 }

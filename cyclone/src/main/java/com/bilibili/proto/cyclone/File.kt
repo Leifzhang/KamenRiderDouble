@@ -13,7 +13,9 @@ public data class File(
 ) {
     // Map is keyed by protobuf names (qualified starting w/ a dot if packageName is non-null) with value of Kotlin FQCN
     internal fun kotlinTypeMappings() = mutableMapOf<String, String>().also { ret ->
-        fun applyType(t: Type, parentProtobufTypeName: String? = null, parentKotlinTypeName: String? = null) {
+        fun applyType(
+            t: Type, parentProtobufTypeName: String? = null, parentKotlinTypeName: String? = null
+        ) {
             val protobufTypeName = when {
                 parentProtobufTypeName != null -> "$parentProtobufTypeName."
                 packageName != null -> ".$packageName."
@@ -25,7 +27,11 @@ public data class File(
                 else -> ""
             } + t.kotlinTypeName
             ret += protobufTypeName to kotlinTypeName
-            (t as? Type.Message)?.nestedTypes?.forEach { applyType(it, protobufTypeName, kotlinTypeName) }
+            (t as? Type.Message)?.nestedTypes?.forEach {
+                applyType(
+                    it, protobufTypeName, kotlinTypeName
+                )
+            }
         }
 
         types.forEach { applyType(it) }
@@ -55,9 +61,12 @@ public data class File(
             override val kotlinTypeName: String,
             override val kotlinFullTypeName: String
         ) : Type() {
-            public data class Value(val number: Int, val name: String, val kotlinValueTypeName: String)
+            public data class Value(
+                val number: Int, val name: String, val kotlinValueTypeName: String
+            )
         }
     }
+
 
     public sealed class Field {
         public abstract val name: String
@@ -86,7 +95,7 @@ public data class File(
                 override val kotlinFieldName: String,
                 // This can be null when localTypeName is not null which means it is fully qualified and should be looked up
                 val kotlinLocalTypeName: String?,
-                override val options : DescriptorProtos.FieldOptions = DescriptorProtos.FieldOptions.getDefaultInstance(),
+                override val options: DescriptorProtos.FieldOptions = DescriptorProtos.FieldOptions.getDefaultInstance(),
                 override val extendee: String? = null
             ) : Numbered()
 
@@ -97,7 +106,7 @@ public data class File(
                 override val repeated: Boolean,
                 override val jsonName: String?,
                 val wrappedType: Type,
-                override val options : DescriptorProtos.FieldOptions = DescriptorProtos.FieldOptions.getDefaultInstance(),
+                override val options: DescriptorProtos.FieldOptions = DescriptorProtos.FieldOptions.getDefaultInstance(),
                 override val extendee: String? = null
             ) : Numbered() {
                 override val type: Type = Type.MESSAGE
@@ -113,13 +122,13 @@ public data class File(
         ) : Field()
 
         public enum class Type {
-            BOOL, BYTES, DOUBLE, ENUM, FIXED32, FIXED64, FLOAT, INT32, INT64, MESSAGE,
-            SFIXED32, SFIXED64, SINT32, SINT64, STRING, UINT32, UINT64;
+            BOOL, BYTES, DOUBLE, ENUM, FIXED32, FIXED64, FLOAT, INT32, INT64, MESSAGE, SFIXED32, SFIXED64, SINT32, SINT64, STRING, UINT32, UINT64;
 
             public val neverPacked: Boolean get() = this in listOf(BYTES, MESSAGE, STRING)
 
             public val wrapperTypeName: String
-                get() = TYPE_TO_WRAPPER_TYPE_NAME[this] ?: error("No wrapper type for ${this.name.lowercase()}")
+                get() = TYPE_TO_WRAPPER_TYPE_NAME[this]
+                    ?: error("No wrapper type for ${this.name.lowercase()}")
 
             public companion object {
                 public val TYPE_TO_WRAPPER_TYPE_NAME: Map<Type, String> = mapOf(
@@ -138,4 +147,9 @@ public data class File(
             }
         }
     }
+}
+
+
+fun File.Type.realName(): String {
+    return fullName
 }

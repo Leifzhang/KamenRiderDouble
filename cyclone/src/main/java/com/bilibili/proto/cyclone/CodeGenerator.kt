@@ -13,8 +13,11 @@ open class CodeGenerator(
     public fun generate(): String {
         //   line("@file:OptIn(pbandk.PublicForGeneratedCode::class)").line()
         file.kotlinPackageName?.let {
+            line("@file:OptIn(ExperimentalSerializationApi::class)")
+            line()
             line("package $it")
             line("import kotlinx.serialization.Serializable")
+            line("import kotlinx.serialization.ExperimentalSerializationApi")
             line("import kotlinx.serialization.protobuf.ProtoNumber")
             line("import kotlinx.serialization.protobuf.ProtoPacked")
         }
@@ -46,6 +49,7 @@ open class CodeGenerator(
     }
 
     protected fun writeEnumType(type: File.Type.Enum, nested: Boolean = false) {
+        line()
         line("@Serializable")
         // Only mark top-level classes for export, internal classes will be exported transitively
         // Enums are sealed classes w/ a value and a name, and a companion object with all values
@@ -63,7 +67,9 @@ open class CodeGenerator(
                 }) }")
                 line("fun fromValue(value: Int): ${type.kotlinFullTypeName} = values.firstOrNull { it.value == value } ?: UNRECOGNIZED")
                 line("fun fromName(name: String): ${type.kotlinFullTypeName} = values.firstOrNull { it.name == name } ?: throw IllegalArgumentException(\"No ${type.kotlinTypeName} with name: \$name\")")
-            }.line("}")
+
+                line("""cont val TAG = "${type.realName()}" """)
+            }.line("}").line()
         }.line("}")
     }
 
@@ -88,9 +94,9 @@ open class CodeGenerator(
                     is File.Field.OneOf -> writeOneofCase(field)
                 }
             }
-            lineEnd(") :  Function0<String> {").indented {
+            lineEnd("){").indented {
                 //   type.fields.filterIsInstance<File.Field.OneOf>().forEach(::writeOneOfType)
-                initOneofCase(type.fields.filterIsInstance<File.Field.OneOf>())
+                initOneofCase(type, type.fields.filterIsInstance<File.Field.OneOf>())
                 type.fields.filterIsInstance<File.Field.Numbered.Standard>().filter { it ->
                     it.type == File.Field.Type.ENUM
                 }.apply { enumsCase(this) }
@@ -99,7 +105,6 @@ open class CodeGenerator(
                 // Nested enums and types
                 type.nestedTypes.forEach { writeType(it, true) }
                 line()
-                line("""override fun invoke(): String ="${type.fullName}" """)
             }
         }.line("}")
     }
@@ -128,68 +133,65 @@ open class CodeGenerator(
         }
     }
 
-    private fun initOneofCase(case: List<File.Field.OneOf>) {
-        if (case.isEmpty()) {
-            return
-        }
-        line()
-        case.forEach {
-            line("@delegate:Transient")
-            line("private val ${it.kotlinFieldName}Number by lazy { ").indented {
-                var getNumberText = ""
-                it.fields.forEachIndexed { index, standard ->
-                    getNumberText += if (index == 0) {
-                        "if( ${standard.kotlinFieldName} != null) {\r"
-                    } else {
-                        "} else if( ${standard.kotlinFieldName} != null){\r"
-                    }
-                    getNumberText+="    $index \r"
-                    if (index == it.fields.size - 1) {
-                        getNumberText+="""} else {
+    private fun initOneofCase(type: File.Type.Message, case: List<File.Field.OneOf>) {
+        if (!case.isEmpty()) {
+            line()
+            case.forEach {
+                line("@delegate:Transient")
+                line("private val ${it.kotlinFieldName}Number by lazy { ").indented {
+                    var getNumberText = ""
+                    it.fields.forEachIndexed { index, standard ->
+                        getNumberText += if (index == 0) {
+                            "if( ${standard.kotlinFieldName} != null) {\r"
+                        } else {
+                            "} else if( ${standard.kotlinFieldName} != null){\r"
+                        }
+                        getNumberText += "    $index \r"
+                        if (index == it.fields.size - 1) {
+                            getNumberText += """} else {
                             |    -1
                             |}
                         """.trimMargin()
+                        }
                     }
-                }
-                getNumberText.lines().forEach { line ->
-                    line(line)
-                }
-            }.line("}")
-        }
-        line()
-        case.forEach { oneOf ->
-            line("$visibility sealed class ${oneOf.kotlinTypeName}(val value:Int)").line()
-            var getOneofValue = ""
-            oneOf.fields.forEachIndexed { index, field ->
-                addDeprecatedAnnotation(field)
-                lineBegin("$visibility object ${oneOf.kotlinFieldTypeNames[field.name]}")
-                lineEnd(" : ${oneOf.kotlinTypeName} ($index)").line()
-                if (index == 0) {
-                    getOneofValue += "if"
-                } else {
-                    getOneofValue += " else if"
-                }
-                getOneofValue += """(${field.kotlinFieldName} != null){
+                    getNumberText.lines().forEach { line ->
+                        line(line)
+                    }
+                }.line("}")
+            }
+            line()
+            case.forEach { oneOf ->
+                line("$visibility sealed class ${oneOf.kotlinTypeName}(val value:Int)").line()
+                var getOneofValue = ""
+                oneOf.fields.forEachIndexed { index, field ->
+                    addDeprecatedAnnotation(field)
+                    lineBegin("$visibility object ${oneOf.kotlinFieldTypeNames[field.name]}")
+                    lineEnd(" : ${oneOf.kotlinTypeName} ($index)").line()
+                    if (index == 0) {
+                        getOneofValue += "if"
+                    } else {
+                        getOneofValue += " else if"
+                    }
+                    getOneofValue += """(${field.kotlinFieldName} != null){
                     |    return ${field.kotlinFieldName}  as T
                     |}
                 """.trimMargin()
-            }
-            getOneofValue += """ else { return null }"""
-
-            line()
-
-            line("fun <T> ${oneOf.kotlinFieldName}Value() : T? {").indented {
-                getOneofValue.lines().forEach {
-                    line(it)
                 }
-            }.line("}")
+                getOneofValue += """ else { return null }"""
 
-            line()
-            line("fun ${oneOf.kotlinFieldName}Type(): ${oneOf.kotlinTypeName} ? = ${oneOf.kotlinFieldName}Values.firstOrNull { it.value == ${oneOf.kotlinFieldName}Number }")
+                line()
 
-            line().line()
+                line("fun <T> ${oneOf.kotlinFieldName}Value() : T? {").indented {
+                    getOneofValue.lines().forEach {
+                        line(it)
+                    }
+                }.line("}")
 
+                line()
+                line("fun ${oneOf.kotlinFieldName}Type(): ${oneOf.kotlinTypeName} ? = ${oneOf.kotlinFieldName}Values.firstOrNull { it.value == ${oneOf.kotlinFieldName}Number }")
 
+                line().line()
+            }
         }
         line("companion object {").indented {
             case.forEach { oneOf ->
@@ -201,7 +203,8 @@ open class CodeGenerator(
                     line("listOf(${text.substring(0, text.length - 1)})")
                 }.line("}")
             }
-        }.line("}").line().line()
+            line("""cont val TAG = "${type.realName()}" """)
+        }.line("}").line()
     }
 
 
