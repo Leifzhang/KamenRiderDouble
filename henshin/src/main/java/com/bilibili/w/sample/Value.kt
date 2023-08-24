@@ -42,6 +42,7 @@ public data class Value(
 
 }
 
+
 @Serializable
 public enum class KProto3PresenceEnum(val value: Int){
     PROTO3_PRESENCE_ENUM_UNSPECIFIED(0),

@@ -68,7 +68,7 @@ open class CodeGenerator(
                 line("fun fromValue(value: Int): ${type.kotlinFullTypeName} = values.firstOrNull { it.value == value } ?: UNRECOGNIZED")
                 line("fun fromName(name: String): ${type.kotlinFullTypeName} = values.firstOrNull { it.name == name } ?: throw IllegalArgumentException(\"No ${type.kotlinTypeName} with name: \$name\")")
 
-                line("""cont val TAG = "${type.realName()}" """)
+                line("""const val TAG = "${type.realName()}" """)
             }.line("}").line()
         }.line("}")
     }
@@ -203,7 +203,7 @@ open class CodeGenerator(
                     line("listOf(${text.substring(0, text.length - 1)})")
                 }.line("}")
             }
-            line("""cont val TAG = "${type.realName()}" """)
+            line("""const val TAG = "${type.realName()}" """)
         }.line("}").line()
     }
 
