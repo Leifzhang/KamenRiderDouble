@@ -59,7 +59,7 @@ open class CodeGenerator(
             }
             line("UNRECOGNIZED(-1);")
             line()
-            line("$visibility companion object {").indented {
+            line("$visibility companion object : Function0<String> {").indented {
                 line("$visibility val values: List<${type.kotlinFullTypeName}> by lazy { listOf(${
                     type.values.joinToString(
                         ", "
@@ -69,6 +69,7 @@ open class CodeGenerator(
                 line("fun fromName(name: String): ${type.kotlinFullTypeName} = values.firstOrNull { it.name == name } ?: throw IllegalArgumentException(\"No ${type.kotlinTypeName} with name: \$name\")")
 
                 line("""const val TAG = "${type.realName()}" """)
+                line("override fun invoke(): String = TAG")
             }.line("}").line()
         }.line("}")
     }
@@ -193,7 +194,7 @@ open class CodeGenerator(
                 line().line()
             }
         }
-        line("companion object {").indented {
+        line("companion object : Function0<String> {").indented {
             case.forEach { oneOf ->
                 var text = ""
                 oneOf.fields.forEachIndexed { index, field ->
@@ -204,6 +205,7 @@ open class CodeGenerator(
                 }.line("}")
             }
             line("""const val TAG = "${type.realName()}" """)
+            line("override fun invoke(): String = TAG")
         }.line("}").line()
     }
 

@@ -10,7 +10,6 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import pbandk.testpb.KProto3PresenceMain
 import pbandk.testpb.KProto3PresenceMessage
 
-
 object MyClass {
     @OptIn(ExperimentalSerializationApi::class)
     @JvmStatic
@@ -31,7 +30,7 @@ object MyClass {
         println("newIntValue:${newIntValue.value}")
 
 
-        val main = KProto3PresenceMain(KProto3PresenceMessage("1234"), "夏老师是大傻逼", 3, 0)
+        val main = KProto3PresenceMain(KProto3PresenceMessage("1234"), "夏老师是大傻逼", 3, listOf(0))
         val mainEncode = ProtoBuf {}.encodeToByteArray(main)
         val mainValue = ProtoBuf {}.decodeFromByteArray<KProto3PresenceMain>(mainEncode)
         println("mainValue: $mainValue")
