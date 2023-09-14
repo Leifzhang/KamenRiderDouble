@@ -3,6 +3,11 @@ plugins {
     id("org.jetbrains.kotlin.jvm")
     id("kotlinx-serialization")
 }
+tasks.named("compileKotlin", org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask::class.java) {
+    compilerOptions {
+        freeCompilerArgs.add("-Xjvm-default=all")
+    }
+}
 
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8

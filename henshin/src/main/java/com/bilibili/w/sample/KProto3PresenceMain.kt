@@ -47,7 +47,7 @@ public data class KProto3PresenceMain(
     @ProtoNumber(10) private val oneOfInt: Int?  = null,
 ){
 
-    @delegate:Transient
+    @delegate:kotlin.jvm.Transient
     private val oneOfNumber by lazy {
         if( oneOfString != null) {
             0
