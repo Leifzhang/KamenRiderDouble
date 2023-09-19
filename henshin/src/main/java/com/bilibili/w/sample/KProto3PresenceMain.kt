@@ -1,4 +1,5 @@
 @file:OptIn(ExperimentalSerializationApi::class)
+@file:Suppress("UNCHECKED_CAST")
 
 package pbandk.testpb
 import kotlinx.serialization.Serializable
